@@ -29,7 +29,8 @@ int main(int ac, char** av)
 		double value;
 		while (std::getline(inFile1, line1))
 		{
-			parse_line1(line1, value);
+			if (parse_line1(line1, value))
+				print_the_result(data ,line1, value);
 		}
 	}
 	return 1;

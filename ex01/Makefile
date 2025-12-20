@@ -1,8 +1,8 @@
-pro = btc
+pro = RPN
 com = c++
 flagse = -Wall -Wextra -Werror -std=c++98
 
-scr = main.cpp BitcoinExchange.cpp
+scr = main.cpp RPN.cpp
 obj = $(scr:.cpp=.o)
 
 all: $(pro)

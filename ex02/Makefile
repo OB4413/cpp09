@@ -1,11 +1,11 @@
-pro = btc
+pro = PmergeMe
 com = c++
 flagse = -Wall -Wextra -Werror -std=c++98
 
-scr = main.cpp BitcoinExchange.cpp
+scr = main.cpp PmergeMe.cpp
 obj = $(scr:.cpp=.o)
 
-all: $(pro)
+all: $(pro) clean
 
 $(pro): $(obj)
 	$(com) $(flagse) $(obj) -o $(pro)
