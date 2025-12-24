@@ -1,5 +1,4 @@
 #include "PmergeMe.hpp"
-#include <unistd.h>
 
 void    parse_args(char **args, std::vector<double> &a, std::deque<double> &b)
 {
@@ -36,9 +35,125 @@ double getTime(){
         throw std::runtime_error("Error");
 }
 
-template <typename T>
-void   merge_insert_sort(T &cont, int NNP)
+template <typename T, typename M>
+void    fill_main_pend(M &main, M &pend, T &non_part, T &cont, int NNP)
 {
+    typename T::iterator it;
+    typename T::iterator it1;
+    T fill_main;
+    int i = 0;
+    int j = 0;
+
+    for (it = cont.begin(); it != cont.end(); it++)
+    {
+        fill_main.clear();
+        if (it == cont.begin())
+        {
+            j = i + NNP;
+            for (; i < j && it != cont.end(); i++)
+            {
+                fill_main.push_back(*it);
+                it++;
+            }
+            main.push_back(fill_main);
+            it--;
+        }
+        else
+        {
+            j = i + NNP;
+            for (; i < j && it != cont.end() && (unsigned long)j <= cont.size(); i++)
+            {
+                fill_main.push_back(*it);
+                it++;
+            }
+            main.push_back(fill_main);
+            fill_main.clear();
+            j = i + NNP;
+            for (; i < j && it != cont.end(); i++)
+            {
+                fill_main.push_back(*it);
+                it++;
+            }
+            pend.push_back(fill_main);
+            it--;
+        }
+    }
+
+    for (unsigned long i = 0; i < pend.size(); i++)
+    {
+        if (pend[i].size() < (unsigned long)NNP)
+        {
+            for (it = pend[i].begin(); it != pend[i].end(); it++)
+                non_part.push_back(*it);
+            pend.erase(pend.begin() + i);
+        }
+    }
+}
+
+size_t get_JN(size_t n)
+{
+    if (n == 0)
+        return 0;
+    else if (n == 1)
+        return 1;
+    else
+        return (get_JN(n - 1) + (2 * get_JN(n - 2)));
+}
+
+template <typename Main>
+struct _cmp{
+    bool operator()(const Main &a, const double value){
+        return a[a.size() - 1] < value;
+    }
+};
+
+template <typename T, typename M>
+void    insert_with_JN(M &main, M &pend, T &cont)
+{
+    size_t jn = 1;
+    typename M::iterator it;
+    typename T::iterator it1;
+    _cmp<typename M::value_type > cmp;
+    (void)cont;
+
+    for (; pend.size() > 0;){
+        size_t p_jn = jn;
+        for (size_t i = 0;; i++)
+        {
+            size_t n = get_JN(i);
+            if (n > jn)
+            {
+                jn = n;
+                break;
+            }
+        }
+        if (pend.size() >= jn - p_jn)
+        {
+            for (int i = jn - p_jn; i > 0; i--)
+            {
+                it = std::lower_bound(main.begin(), main.end(), *(pend[i - 1].end() - 1), cmp);
+                main.insert(it, pend[i - 1]);
+                pend.erase(pend.begin() + i - 1);
+            }
+        }
+        else
+        {
+            int size_pend = pend.size();
+            for (int i = 0; i < size_pend; i++)
+            {
+                it = std::lower_bound(main.begin(), main.end(), *(pend[i].end() - 1), cmp);
+                main.insert(it, pend[i]);
+                pend.erase(pend.begin() + i);
+            }
+        }
+    }
+}
+
+template <typename T, typename M>
+void   merge_insert_sort(T &cont, M &main, int NNP)
+{
+    M pend;
+    T non_part;
     typename T::iterator it;
     typename T::iterator it_f;
     typename T::iterator it_s;
@@ -51,24 +166,38 @@ void   merge_insert_sort(T &cont, int NNP)
             if (*it_f > *it_s)
                 std::swap_ranges(it_f - (NNP - 1), it_f + 1, it_s - (NNP - 1));
         }
+        else
+            break;
         it += NNP * 2 + 1;
-        // std::cout << "hhhhhh" << std::endl;
     }
-    if ((unsigned long)NNP * 2 < cont.size())
+    if ((unsigned long)NNP * 4 <= cont.size())
+        merge_insert_sort(cont, main, NNP * 2);
+    fill_main_pend(main, pend, non_part, cont, NNP);
+    if (pend.size() > 0)
+        insert_with_JN(main, pend, cont);
+    cont.clear();
+    for (size_t i = 0; i < main.size(); i++)
     {
-        std::cout << "----" << cont.size() << "---" << NNP << std::endl;
-        for (typename T::iterator it3 = cont.begin(); it3 != cont.end(); it3++)
-        {
-            std::cout << " " << *it3 << ' ';
-        }
-        std::cout << std::endl;
-        merge_insert_sort(cont, NNP * 2);
+        for (typename T::iterator i1 = main[i].begin(); i1 != main[i].end(); i1++)
+            cont.push_back(*i1);
     }
+    for (typename T::iterator i1 = non_part.begin(); i1 != non_part.end(); i1++)
+        cont.push_back(*i1);
+    non_part.clear();
+    for (unsigned long i = 0; i < main.size(); i++)
+        main[i].clear();
+    main.clear();
+    for (unsigned long i = 0; i < pend.size(); i++)
+        pend[i].clear();
+    pend.clear();
+    non_part.clear();
 }
 
 void pmergeme(char **args){
     std::vector<double> a;
     std::deque<double> b;
+    std::vector<std::vector<double> > main_vector;
+    std::deque<std::deque<double> > main_deque;
 
     parse_args(++args, a, b);
     std::cout << "Before: ";
@@ -78,7 +207,7 @@ void pmergeme(char **args){
     std::cout << std::endl;
     
     double now = getTime();
-    merge_insert_sort(a, 1);
+    merge_insert_sort(a,main_vector, 1);
     std::cout << "After: ";
     for (it = a.begin(); it != a.end(); it++)
         std::cout << *it << ' ';
@@ -87,7 +216,7 @@ void pmergeme(char **args){
     std::cout << "Time to process a range of " << a.size() << " elements with std::[vector] : " << curr_time - now << " us" << std::endl;
 
     now = getTime();
-    // merge_insert_sort(b, 1);
+    merge_insert_sort(b, main_deque, 1);
     curr_time = getTime();
     std::cout << "Time to process a range of " << a.size() << " elements with std::[deque] : " << curr_time - now << " us" << std::endl;
 }
