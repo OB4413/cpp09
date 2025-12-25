@@ -1,9 +1,12 @@
 #include "PmergeMe.hpp"
+static int ncmp = 0;
 
 void    parse_args(char **args, std::vector<double> &a, std::deque<double> &b)
 {
     char *end = NULL;
     double n;
+    std::vector<double>::iterator it;
+    std::vector<double>::iterator it1;
 
     for (size_t i = 0; args[i]; i++)
     {
@@ -11,28 +14,34 @@ void    parse_args(char **args, std::vector<double> &a, std::deque<double> &b)
         if (n < 0 || !args[i][0])
             throw std::runtime_error("Error");
         else if (*end != '\0' && !std::isspace(*end))
-            throw std::runtime_error("---Error");
+            throw std::runtime_error("Error");
         else if (std::isspace(*end))
         {
             while (*end != '\0')
             {
                 end++;
                 if (!std::isspace(*end) && *end != '\0')
-                    throw std::runtime_error("+++Error");
+                    throw std::runtime_error("Error");
             }
         }
         a.push_back(n);
         b.push_back(n);
     }
+    
+    for (it = a.begin(); it != a.end(); it++)
+    {
+        for ( it1 = it + 1; it1 != a.end(); it1++)
+        {
+            if (*it == *it1)
+                throw std::runtime_error("Error");
+        }
+    }
 }
 
 double getTime(){
-    struct timeval time;
-
-    if (gettimeofday(&time, NULL) == 0)
-        return (time.tv_usec + (time.tv_sec * 1000000));
-    else
-        throw std::runtime_error("Error");
+    struct timespec time;
+    clock_gettime(CLOCK_REALTIME, &time);
+    return (time.tv_sec * 1e6) + (time.tv_nsec / 1e3);
 }
 
 template <typename T, typename M>
@@ -46,7 +55,6 @@ void    fill_main_pend(M &main, M &pend, T &non_part, T &cont, int NNP)
 
     for (it = cont.begin(); it != cont.end(); it++)
     {
-        fill_main.clear();
         if (it == cont.begin())
         {
             j = i + NNP;
@@ -56,18 +64,22 @@ void    fill_main_pend(M &main, M &pend, T &non_part, T &cont, int NNP)
                 it++;
             }
             main.push_back(fill_main);
+            fill_main.clear();
             it--;
         }
         else
         {
             j = i + NNP;
-            for (; i < j && it != cont.end() && (unsigned long)j <= cont.size(); i++)
+            if ((unsigned long)j <= cont.size())
             {
-                fill_main.push_back(*it);
-                it++;
+                for (; i < j && it != cont.end(); i++)
+                {
+                    fill_main.push_back(*it);
+                    it++;
+                }
+                main.push_back(fill_main);
+                fill_main.clear();
             }
-            main.push_back(fill_main);
-            fill_main.clear();
             j = i + NNP;
             for (; i < j && it != cont.end(); i++)
             {
@@ -75,6 +87,7 @@ void    fill_main_pend(M &main, M &pend, T &non_part, T &cont, int NNP)
                 it++;
             }
             pend.push_back(fill_main);
+            fill_main.clear();
             it--;
         }
     }
@@ -103,6 +116,7 @@ size_t get_JN(size_t n)
 template <typename Main>
 struct _cmp{
     bool operator()(const Main &a, const double value){
+        ncmp++;
         return a[a.size() - 1] < value;
     }
 };
@@ -138,12 +152,11 @@ void    insert_with_JN(M &main, M &pend, T &cont)
         }
         else
         {
-            int size_pend = pend.size();
-            for (int i = 0; i < size_pend; i++)
+            for (; pend.size() > 0;)
             {
-                it = std::lower_bound(main.begin(), main.end(), *(pend[i].end() - 1), cmp);
-                main.insert(it, pend[i]);
-                pend.erase(pend.begin() + i);
+                it = std::lower_bound(main.begin(), main.end(), *(pend.begin()->end() - 1), cmp);
+                main.insert(it, *(pend.begin()));
+                pend.erase(pend.begin());
             }
         }
     }
@@ -163,6 +176,7 @@ void   merge_insert_sort(T &cont, M &main, int NNP)
         it_s = it_f + NNP;
         if (it_f < cont.end() && it_s < cont.end())
         {
+            ncmp++;
             if (*it_f > *it_s)
                 std::swap_ranges(it_f - (NNP - 1), it_f + 1, it_s - (NNP - 1));
         }
@@ -214,6 +228,7 @@ void pmergeme(char **args){
     std::cout << std::endl;
     double curr_time = getTime();
     std::cout << "Time to process a range of " << a.size() << " elements with std::[vector] : " << curr_time - now << " us" << std::endl;
+    std::cout << "ncmp: " << ncmp << std::endl;
 
     now = getTime();
     merge_insert_sort(b, main_deque, 1);
