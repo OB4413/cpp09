@@ -275,12 +275,4 @@ void pmergeme(char **args){
     merge_insert_sort(b, main_deque, know_endz_d, 1);
     curr_time = getTime();
     std::cout << "Time to process a range of " << a.size() << " elements with std::[deque] : " << curr_time - now << " us" << std::endl;
-    
-    
-    if (std::is_sorted(a.begin(), a.end()))
-    {
-        std::cout << "is sorted" << std::endl;
-        
-    }
-    
 }
