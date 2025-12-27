@@ -1,11 +1,11 @@
 pro = PmergeMe
 com = c++
-flagse = -Wall -Wextra -Werror -std=c++98 #-fsanitize=address
+flagse = #-Wall -Wextra -Werror -std=c++98
 
 scr = main.cpp PmergeMe.cpp
 obj = $(scr:.cpp=.o)
 
-all: $(pro) clean
+all: $(pro)
 
 $(pro): $(obj)
 	$(com) $(flagse) $(obj) -o $(pro)

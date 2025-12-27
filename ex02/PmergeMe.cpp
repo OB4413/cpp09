@@ -44,8 +44,8 @@ double getTime(){
     return (time.tv_sec * 1e6) + (time.tv_nsec / 1e3);
 }
 
-template <typename T, typename M>
-void    fill_main_pend(M &main, M &pend, T &non_part, T &cont, int NNP)
+template <typename T, typename M, typename K>
+void    fill_main_pend(M &main, M &pend, T &non_part, T &cont, K &know_end, int NNP)
 {
     typename T::iterator it;
     typename T::iterator it1;
@@ -101,6 +101,16 @@ void    fill_main_pend(M &main, M &pend, T &non_part, T &cont, int NNP)
             pend.erase(pend.begin() + i);
         }
     }
+
+    unsigned long s = 2;
+    for (unsigned long j = 0; j < pend.size(); j++)
+    {
+        if (s < main.size())
+            know_end.push_back(std::make_pair(*(pend[j].end() - 1), *(main[s].end() - 1)));
+        else
+            know_end.push_back(std::make_pair(*(pend[j].end() - 1), -1));
+        s++;
+    }
 }
 
 size_t get_JN(size_t n)
@@ -121,10 +131,35 @@ struct _cmp{
     }
 };
 
-template <typename T, typename M>
-void    insert_with_JN(M &main, M &pend, T &cont)
+template <typename K, typename M>
+int    finde_range(double f, K &know_end, M &main)
+{
+    int range = 0;
+    double save;
+
+    for (unsigned long i = 0; i < know_end.size(); i++)
+    {
+        if (know_end[i].first == f)
+        {
+            save = know_end[i].second;
+            break;
+        }
+    }
+    
+    for (typename M::iterator it = main.begin(); it != main.end(); it++)
+    {
+        if (save == *(it->end() - 1))
+            break;
+        range++;
+    }
+    return range;
+}
+
+template <typename T, typename M, typename K>
+void    insert_with_JN(M &main, M &pend, T &cont, K &know_end)
 {
     size_t jn = 1;
+    int range;
     typename M::iterator it;
     typename T::iterator it1;
     _cmp<typename M::value_type > cmp;
@@ -145,7 +180,8 @@ void    insert_with_JN(M &main, M &pend, T &cont)
         {
             for (int i = jn - p_jn; i > 0; i--)
             {
-                it = std::lower_bound(main.begin(), main.end(), *(pend[i - 1].end() - 1), cmp);
+                range = finde_range(*(pend[i - 1].end() - 1), know_end, main);
+                it = std::lower_bound(main.begin(), main.begin() + range, *(pend[i - 1].end() - 1), cmp);
                 main.insert(it, pend[i - 1]);
                 pend.erase(pend.begin() + i - 1);
             }
@@ -154,7 +190,8 @@ void    insert_with_JN(M &main, M &pend, T &cont)
         {
             for (; pend.size() > 0;)
             {
-                it = std::lower_bound(main.begin(), main.end(), *(pend.begin()->end() - 1), cmp);
+                range = finde_range(*(pend.begin()->end() - 1), know_end, main);
+                it = std::lower_bound(main.begin(), main.begin() + range, *(pend.begin()->end() - 1), cmp);
                 main.insert(it, *(pend.begin()));
                 pend.erase(pend.begin());
             }
@@ -162,14 +199,15 @@ void    insert_with_JN(M &main, M &pend, T &cont)
     }
 }
 
-template <typename T, typename M>
-void   merge_insert_sort(T &cont, M &main, int NNP)
+template <typename T, typename M, typename K>
+void   merge_insert_sort(T &cont, M &main, K &know_end,int NNP)
 {
     M pend;
     T non_part;
     typename T::iterator it;
     typename T::iterator it_f;
     typename T::iterator it_s;
+
     for (it = cont.begin(); it != cont.end(); it--)
     {
         it_f = it + (NNP - 1);
@@ -185,10 +223,10 @@ void   merge_insert_sort(T &cont, M &main, int NNP)
         it += NNP * 2 + 1;
     }
     if ((unsigned long)NNP * 4 <= cont.size())
-        merge_insert_sort(cont, main, NNP * 2);
-    fill_main_pend(main, pend, non_part, cont, NNP);
+        merge_insert_sort(cont, main, know_end, NNP * 2);
+    fill_main_pend(main, pend, non_part, cont, know_end, NNP);
     if (pend.size() > 0)
-        insert_with_JN(main, pend, cont);
+        insert_with_JN(main, pend, cont, know_end);
     cont.clear();
     for (size_t i = 0; i < main.size(); i++)
     {
@@ -205,6 +243,7 @@ void   merge_insert_sort(T &cont, M &main, int NNP)
         pend[i].clear();
     pend.clear();
     non_part.clear();
+    know_end.clear();
 }
 
 void pmergeme(char **args){
@@ -212,6 +251,8 @@ void pmergeme(char **args){
     std::deque<double> b;
     std::vector<std::vector<double> > main_vector;
     std::deque<std::deque<double> > main_deque;
+    std::vector<std::pair<double, double> > know_endz_v;
+    std::vector<std::pair<double, double> > know_endz_d;
 
     parse_args(++args, a, b);
     std::cout << "Before: ";
@@ -221,7 +262,7 @@ void pmergeme(char **args){
     std::cout << std::endl;
     
     double now = getTime();
-    merge_insert_sort(a,main_vector, 1);
+    merge_insert_sort(a,main_vector, know_endz_v, 1);
     std::cout << "After: ";
     for (it = a.begin(); it != a.end(); it++)
         std::cout << *it << ' ';
@@ -231,7 +272,15 @@ void pmergeme(char **args){
     std::cout << "ncmp: " << ncmp << std::endl;
 
     now = getTime();
-    merge_insert_sort(b, main_deque, 1);
+    merge_insert_sort(b, main_deque, know_endz_d, 1);
     curr_time = getTime();
     std::cout << "Time to process a range of " << a.size() << " elements with std::[deque] : " << curr_time - now << " us" << std::endl;
+    
+    
+    if (std::is_sorted(a.begin(), a.end()))
+    {
+        std::cout << "is sorted" << std::endl;
+        
+    }
+    
 }
