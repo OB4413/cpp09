@@ -50,7 +50,7 @@ bool    parse_line1(std::string &line1, double &val){
         return (std::cerr << "Error: too large a number." << std::endl, false);
     if (val < 0)
         return (std::cerr << "Error: not a positive number." << std::endl, false);
-    if (*end != '\0' || value[0] == ' ')
+    if (*end != '\0' || isspace(value[0]))
         return (std::cerr << "Error: bad input => " << line1 << std::endl, false);
     if (date.size() > 10 || date[4] != '-' || date[7] != '-')
         return (std::cerr << "Error: bad input => " << line1 << std::endl, false);
@@ -72,7 +72,9 @@ void    print_the_result(std::map<std::string, float> &data ,std::string &date, 
         std::cerr << "Error the Data is empty." << std::endl;
         return ;
     }
-    if (it != data.begin() && it->first.compare(date))
+    if (it == data.end())
+        --it;
+    else if (it != data.begin() && it->first.compare(date))
         --it;
     std::cout << date << " => " << value << " = " << value * it->second << std::endl;
 }
